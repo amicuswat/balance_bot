@@ -13,6 +13,14 @@ def main(api_key, url):
     while True:
         response = requests.get(url, params=params)
         print(response.json()['balance'])
+
+        params = {
+            "amount":10
+        }
+
+
+        response = requests.post('http://localhost:8000/api/v1/balancelist/', json=params)
+        print(response.json())
         time.sleep(60)
 
 
