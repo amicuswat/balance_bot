@@ -1,12 +1,15 @@
 import os
 import asyncio
+from datetime import datetime
 from urllib.parse import urljoin
 
 import requests
+from requests.exceptions import ConnectionError
 from telethon import TelegramClient, events, Button
 from dotenv import load_dotenv
 
 balance_cache = 0
+last_notification_cache = None
 
 API_URL = 'http://localhost:8000/api/v1/'
 
@@ -30,6 +33,21 @@ async def get_users_to_notify_ids():
     users_to_notify_ids = [user['telegram_id'] for user in users if user['is_notification_list']]
 
     return users_to_notify_ids
+
+
+async def should_notify(balance):
+    bot_settings = await call_api('bots/1')
+    if balance > bot_settings['first_limit']:
+        return
+
+    if not last_notification_cache:
+        last_notification_cache = datetime.now()
+        return True
+
+    if balance < bot_settings['critical_limit']
+        and :
+
+    pass
 
 
 @events.register(events.CallbackQuery(data=b'check'))
@@ -65,9 +83,9 @@ async def broadcast(bot, balance):
         except ValueError:
             print('User ID not found.')
 
+    # todo ToMany messages tg limit Exception
+
     # todo Exception if chat is closed
-
-
 
 
 async def frigate_connector(bot, delay, frigate_api_key, frigate_api_url):
@@ -77,27 +95,33 @@ async def frigate_connector(bot, delay, frigate_api_key, frigate_api_url):
     }
     # bot_id = 1
     # last_notification = datetime.now()
-
     while True:
+        print(1)
+        try:
+            response = requests.get(frigate_api_url, params=params)
+        except ConnectionError as ex:
+            await asyncio.sleep(delay)
+            continue
 
+        except Exception as ex:
+            print(type(ex))
+            await asyncio.sleep(delay)
+            continue
 
-        response = requests.get(frigate_api_url, params=params)
         response.raise_for_status()
         print(response.json())
 
+
         balance = response.json()['balance']
         # todo Save to DB
-        # todo Renew cache
-
-
-        # todo Remove test values
-        balance = 10000
-        # test values end
-
-        if balance < 2000:
+        balance_cache = balance
+        print(2)
+        if await should_notify(balance):
             await broadcast(bot, balance)
+        print(3)
 
         await asyncio.sleep(delay)
+        print(4)
 
         # bot_settings = get_bot_settings(bot_id)
         # if balance < bot_settings['critical_limit']['limit']:
@@ -112,7 +136,7 @@ async def frigate_connector(bot, delay, frigate_api_key, frigate_api_url):
 
 if __name__ == '__main__':
     load_dotenv()
-    delay = 30
+    delay = 5
     balance_cache = 0
     frigate_api_key = os.environ['FRIGAT_API_KEY']
     frigate_api_url = 'https://frigate-proxy.ru/ru/api/balance'
