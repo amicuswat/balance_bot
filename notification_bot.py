@@ -47,17 +47,13 @@ async def check_balance_handler(event):
 
 @events.register(events.NewMessage(incoming=True, pattern='/balance'))
 async def start_handler(event):
-    # chat = await event.get_chat()
-    # allowed_chats = await call_api('organisations')
     await event.reply('Нажмите "проверить", чтобы узнать ваш баланс.', buttons=[
         Button.inline('Проверить', b'check')
     ])
-    # if chat.id in [chat['chat_id'] for chat in allowed_chats]:
-
 
 
 async def broadcast(bot, balance):
-    print('Started')
+    print('Will send notification')
     users_to_notify_ids = get_users_to_notify_ids()
 
     if not users_to_notify_ids:
@@ -68,6 +64,8 @@ async def broadcast(bot, balance):
             await bot.send_message(user_id, f'Ваш баланс: {balance}')
         except ValueError:
             print('User ID not found.')
+
+    # todo Exception if chat is closed
 
 
 
