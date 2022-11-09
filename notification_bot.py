@@ -1,6 +1,6 @@
 import os
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from urllib.parse import urljoin
 
 import requests
@@ -38,16 +38,25 @@ async def get_users_to_notify_ids():
 async def should_notify(balance):
     bot_settings = await call_api('bots/1')
     if balance > bot_settings['first_limit']:
+        print('balance is bigger do nothing')
         return
+    print('balance is less continue')
 
     if not last_notification_cache:
+        print('notify first time, save time')
+        last_notification_cache = datetime.now()
+        return True
+
+    if datetime.now() - last_notification_cache > timedelta(hours=bot_settings['first_limit_delay']):
+        print('time to notify again')
         last_notification_cache = datetime.now()
         return True
 
     if balance < bot_settings['critical_limit']
-        and :
-
-    pass
+        and datetime.now() - last_notification_cache > timedelta(hours=bot_settings['critical_limit_delay']):
+        print('criticl balance notify')
+        last_notification_cache = datetime.now()
+        return True
 
 
 @events.register(events.CallbackQuery(data=b'check'))
@@ -113,6 +122,8 @@ async def frigate_connector(bot, delay, frigate_api_key, frigate_api_url):
 
 
         balance = response.json()['balance']
+        # todo Delete after test
+        balance = 10000
         # todo Save to DB
         balance_cache = balance
         print(2)
@@ -138,6 +149,7 @@ if __name__ == '__main__':
     load_dotenv()
     delay = 5
     balance_cache = 0
+    last_notification_cache = datetime.now()
     frigate_api_key = os.environ['FRIGAT_API_KEY']
     frigate_api_url = 'https://frigate-proxy.ru/ru/api/balance'
 
