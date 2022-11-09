@@ -37,23 +37,59 @@ async def start_handler(event):
         ])
 
 
-async def broadcast(bot, delay):
+async def broadcast(bot, balance):
     print('Started')
     users = await call_api('members')
+
+    if users:
+        for user in users:
+            try:
+                await bot.send_message(user['telegram_id'], f'Ваш баланс: {balance}')
+            except ValueError:
+                print('User ID not found.')
+
+
+async def frigate_connector(bot, delay, frigate_api_key, frigate_api_url):
+    print('Start looping')
+    params = {
+        'api_key': frigate_api_key
+    }
+    # bot_id = 1
+    # last_notification = datetime.now()
+
     while True:
+
         await asyncio.sleep(delay)
-        balances = await call_api('balancelist')
-        if users:
-            for user in users:
-                balance = [balance['amount'] for balance in balances if balance['organisation'] == user['organisation']][0]
-                try:
-                    await bot.send_message(user['telegram_id'], f'Ваш баланс: {balance}')
-                except ValueError:
-                    print('User ID not found.')
+        response = requests.get(frigate_api_url, params=params)
+        response.raise_for_status()
+
+        balance = response.json()['balance']
+        print(balance)
+        print(type(balance))
+
+        # test values
+        balance = 1000
+        # test values end
+
+        if balance < 2000:
+            broadcast(bot, balance)
+
+        # bot_settings = get_bot_settings(bot_id)
+        # if balance < bot_settings['critical_limit']['limit']:
+        #     should_send_message = ((datetime.now() - last_notification)
+        #                            > timedelta(hours=bot_settings['critical_limit']['delay']))
+        #     if should_send_message:
+        #         broadcast(bot, balance)
+        #         last_notification = datetime.now()
+        #         continue
+
 
 
 if __name__ == '__main__':
     load_dotenv()
+    delay = 30
+    frigate_api_key = os.environ['FRIGAT_API_KEY']
+    frigate_api_url = 'https://frigate-proxy.ru/ru/api/balance'
 
     bot = TelegramClient('test_session', api_id=os.environ['TG_API_ID'], api_hash=os.environ['TG_API_HASH'])
     bot.start(bot_token=os.environ['TG_BOT_TOKEN'])
@@ -61,5 +97,5 @@ if __name__ == '__main__':
     with bot:
         bot.add_event_handler(start_handler)
         bot.add_event_handler(check_balance_handler)
-        bot.loop.create_task(broadcast(bot, delay=30))
+        bot.loop.create_task(frigate_connector(bot, delay, frigate_api_key, frigate_api_url))
         bot.run_until_disconnected()
