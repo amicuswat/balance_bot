@@ -25,6 +25,13 @@ async def is_permited_user(user_id):
     return user_id in allowered_users_ids
 
 
+async def get_users_to_notify_ids():
+    users = await call_api('members')
+    users_to_notify_ids = [user['telegram_id'] for user in users if user['is_notification_list']]
+
+    return users_to_notify_ids
+
+
 @events.register(events.CallbackQuery(data=b'check'))
 async def check_balance_handler(event):
     current_user = await event.get_sender()
@@ -51,14 +58,18 @@ async def start_handler(event):
 
 async def broadcast(bot, balance):
     print('Started')
-    users = await call_api('members')
+    users_to_notify_ids = get_users_to_notify_ids()
 
-    if users:
-        for user in users:
-            try:
-                await bot.send_message(user['telegram_id'], f'Ваш баланс: {balance}')
-            except ValueError:
-                print('User ID not found.')
+    if not users_to_notify_ids:
+        return
+
+    for user_id in users_to_notify_ids:
+        try:
+            await bot.send_message(user_id, f'Ваш баланс: {balance}')
+        except ValueError:
+            print('User ID not found.')
+
+
 
 
 async def frigate_connector(bot, delay, frigate_api_key, frigate_api_url):
@@ -71,9 +82,10 @@ async def frigate_connector(bot, delay, frigate_api_key, frigate_api_url):
 
     while True:
 
-        await asyncio.sleep(delay)
+
         response = requests.get(frigate_api_url, params=params)
         response.raise_for_status()
+        print(response.json())
 
         balance = response.json()['balance']
         # todo Save to DB
@@ -86,6 +98,8 @@ async def frigate_connector(bot, delay, frigate_api_key, frigate_api_url):
 
         if balance < 2000:
             await broadcast(bot, balance)
+
+        await asyncio.sleep(delay)
 
         # bot_settings = get_bot_settings(bot_id)
         # if balance < bot_settings['critical_limit']['limit']:
