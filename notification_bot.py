@@ -36,6 +36,7 @@ async def get_users_to_notify_ids():
 
 
 async def should_notify(balance):
+    global last_notification_cache
     bot_settings = await call_api('bots/1')
     if balance > bot_settings['first_limit']:
         print('balance is bigger do nothing')
@@ -46,14 +47,16 @@ async def should_notify(balance):
         print('notify first time, save time')
         last_notification_cache = datetime.now()
         return True
+    print('Is it time to notify again?')
 
     if datetime.now() - last_notification_cache > timedelta(hours=bot_settings['first_limit_delay']):
         print('time to notify again')
         last_notification_cache = datetime.now()
         return True
+    print('not notify is it critical')
 
-    if balance < bot_settings['critical_limit']
-        and datetime.now() - last_notification_cache > timedelta(hours=bot_settings['critical_limit_delay']):
+    if (balance < bot_settings['critical_limit']
+        and datetime.now() - last_notification_cache > timedelta(hours=bot_settings['critical_limit_delay'])):
         print('criticl balance notify')
         last_notification_cache = datetime.now()
         return True
@@ -69,7 +72,7 @@ async def check_balance_handler(event):
         await event.answer(f'У вас нет доступа к этой информации', alert=True)
         return
 
-    await event.answer(f'Ваш баланс: {balance}', alert=True)
+    await event.answer(f'Пополните баланс, осталось всего: {balance}', alert=True)
 
 
 @events.register(events.NewMessage(incoming=True, pattern='/balance'))
@@ -81,7 +84,8 @@ async def start_handler(event):
 
 async def broadcast(bot, balance):
     print('Will send notification')
-    users_to_notify_ids = get_users_to_notify_ids()
+    users_to_notify_ids = await get_users_to_notify_ids()
+    print(users_to_notify_ids)
 
     if not users_to_notify_ids:
         return
@@ -98,6 +102,8 @@ async def broadcast(bot, balance):
 
 
 async def frigate_connector(bot, delay, frigate_api_key, frigate_api_url):
+    global last_notification_cache, balance_cache
+
     print('Start looping')
     params = {
         'api_key': frigate_api_key
@@ -123,7 +129,7 @@ async def frigate_connector(bot, delay, frigate_api_key, frigate_api_url):
 
         balance = response.json()['balance']
         # todo Delete after test
-        balance = 10000
+        balance = 1500
         # todo Save to DB
         balance_cache = balance
         print(2)
@@ -134,22 +140,10 @@ async def frigate_connector(bot, delay, frigate_api_key, frigate_api_url):
         await asyncio.sleep(delay)
         print(4)
 
-        # bot_settings = get_bot_settings(bot_id)
-        # if balance < bot_settings['critical_limit']['limit']:
-        #     should_send_message = ((datetime.now() - last_notification)
-        #                            > timedelta(hours=bot_settings['critical_limit']['delay']))
-        #     if should_send_message:
-        #         broadcast(bot, balance)
-        #         last_notification = datetime.now()
-        #         continue
-
-
 
 if __name__ == '__main__':
     load_dotenv()
-    delay = 5
-    balance_cache = 0
-    last_notification_cache = datetime.now()
+    delay = 60 # seconds
     frigate_api_key = os.environ['FRIGAT_API_KEY']
     frigate_api_url = 'https://frigate-proxy.ru/ru/api/balance'
 
