@@ -20,21 +20,22 @@ async def call_api(endpoint):
 @events.register(events.CallbackQuery(data=b'check'))
 async def check_balance_handler(event):
     current_user = await event.get_sender()
-    users = await call_api('members')
-    organisation = [user['organisation'] for user in users if user['telegram_id'] == current_user.id][0]
-    balances = await call_api('balancelist')
-    balance = [balance['amount'] for balance in balances if balance['organisation'] == organisation][0]
+    # users = await call_api('members')
+    # organisation = [user['organisation'] for user in users if user['telegram_id'] == current_user.id][0]
+    # balances = await call_api('balancelist')
+    # balance = [balance['amount'] for balance in balances if balance['organisation'] == organisation][0]
     await event.answer(f'Ваш баланс: {balance}', alert=True)
 
 
 @events.register(events.NewMessage(incoming=True, pattern='balance'))
 async def start_handler(event):
-    chat = await event.get_chat()
-    allowed_chats = await call_api('organisations')
-    if chat.id in [chat['chat_id'] for chat in allowed_chats]:
-        await event.reply('Нажмите "проверить", чтобы узнать ваш баланс.', buttons=[
-            Button.inline('Проверить', b'check')
-        ])
+    # chat = await event.get_chat()
+    # allowed_chats = await call_api('organisations')
+    await event.reply('Нажмите "проверить", чтобы узнать ваш баланс.', buttons=[
+        Button.inline('Проверить', b'check')
+    ])
+    # if chat.id in [chat['chat_id'] for chat in allowed_chats]:
+
 
 
 async def broadcast(bot, balance):
