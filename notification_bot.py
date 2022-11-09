@@ -6,6 +6,7 @@ import requests
 from telethon import TelegramClient, events, Button
 from dotenv import load_dotenv
 
+balance_cache = 0
 
 API_URL = 'http://localhost:8000/api/v1/'
 
@@ -17,17 +18,27 @@ async def call_api(endpoint):
     return response.json()
 
 
+async def is_permited_user(user_id):
+    users = await call_api('members')
+    allowered_users_ids = [user['telegram_id'] for user in users if user['is_bot_user']]
+
+    return user_id in allowered_users_ids
+
+
 @events.register(events.CallbackQuery(data=b'check'))
 async def check_balance_handler(event):
     current_user = await event.get_sender()
-    # users = await call_api('members')
-    # organisation = [user['organisation'] for user in users if user['telegram_id'] == current_user.id][0]
-    # balances = await call_api('balancelist')
-    # balance = [balance['amount'] for balance in balances if balance['organisation'] == organisation][0]
+
+    balance = balance_cache
+
+    if not await is_permited_user(current_user.id):
+        await event.answer(f'У вас нет доступа к этой информации', alert=True)
+        return
+
     await event.answer(f'Ваш баланс: {balance}', alert=True)
 
 
-@events.register(events.NewMessage(incoming=True, pattern='balance'))
+@events.register(events.NewMessage(incoming=True, pattern='/balance'))
 async def start_handler(event):
     # chat = await event.get_chat()
     # allowed_chats = await call_api('organisations')
@@ -65,15 +76,16 @@ async def frigate_connector(bot, delay, frigate_api_key, frigate_api_url):
         response.raise_for_status()
 
         balance = response.json()['balance']
-        print(balance)
-        print(type(balance))
+        # todo Save to DB
+        # todo Renew cache
 
-        # test values
-        balance = 1000
+
+        # todo Remove test values
+        balance = 10000
         # test values end
 
         if balance < 2000:
-            broadcast(bot, balance)
+            await broadcast(bot, balance)
 
         # bot_settings = get_bot_settings(bot_id)
         # if balance < bot_settings['critical_limit']['limit']:
@@ -89,6 +101,7 @@ async def frigate_connector(bot, delay, frigate_api_key, frigate_api_url):
 if __name__ == '__main__':
     load_dotenv()
     delay = 30
+    balance_cache = 0
     frigate_api_key = os.environ['FRIGAT_API_KEY']
     frigate_api_url = 'https://frigate-proxy.ru/ru/api/balance'
 
