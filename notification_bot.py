@@ -21,6 +21,14 @@ async def call_api(endpoint):
     return response.json()
 
 
+async def call_api_post(endpoint, params):
+    full_url = urljoin(API_URL, endpoint)
+    print(full_url)
+    response = requests.post(full_url, data=params)
+    response.raise_for_status()
+    return response.json()
+
+
 async def is_permited_user(user_id):
     users = await call_api('members')
     allowered_users_ids = [user['telegram_id'] for user in users if user['is_bot_user']]
@@ -115,6 +123,7 @@ async def frigate_connector(bot, delay, frigate_api_key, frigate_api_url):
         try:
             response = requests.get(frigate_api_url, params=params)
         except ConnectionError as ex:
+            print(ex)
             await asyncio.sleep(delay)
             continue
 
@@ -128,9 +137,15 @@ async def frigate_connector(bot, delay, frigate_api_key, frigate_api_url):
 
 
         balance = response.json()['balance']
+
+        balance_params = {
+            "amount": f'{balance}'
+        }
+
+        await call_api_post('balancelist/', balance_params)
         # todo Delete after test
         balance = 1500
-        # todo Save to DB
+        
         balance_cache = balance
         print(2)
         if await should_notify(balance):
