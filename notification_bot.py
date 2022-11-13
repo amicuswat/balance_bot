@@ -29,18 +29,18 @@ async def call_api_post(endpoint, params):
     return response.json()
 
 
-async def is_permited_user(user_id):
-    users = await call_api('members')
-    allowered_users_ids = [user['telegram_id'] for user in users if user['is_bot_user']]
+async def is_permited_chat(chat_id):
+    chats = await call_api('groups')
+    allowed_chat_ids = [chat['telegram_id'] for chat in chats]
 
-    return user_id in allowered_users_ids
+    return chat_id in allowed_chat_ids
 
 
-async def get_users_to_notify_ids():
-    users = await call_api('members')
-    users_to_notify_ids = [user['telegram_id'] for user in users if user['is_notification_list']]
+async def get_chats_to_notify_ids():
+    chats = await call_api('groups')
+    chats_to_notify_ids = [chat['telegram_id'] for chat in chats if chat['is_notification_list']]
 
-    return users_to_notify_ids
+    return chats_to_notify_ids
 
 
 async def should_notify(balance):
@@ -65,44 +65,46 @@ async def should_notify(balance):
 
     if (balance < bot_settings['critical_limit']
         and datetime.now() - last_notification_cache > timedelta(hours=bot_settings['critical_limit_delay'])):
-        print('criticl balance notify')
+        print('critical balance notify')
         last_notification_cache = datetime.now()
         return True
 
 
-@events.register(events.CallbackQuery(data=b'check'))
+@events.register(events.NewMessage(incoming=True, pattern='Прoвeрить'))
 async def check_balance_handler(event):
-    current_user = await event.get_sender()
+    current_chat = await event.get_chat()
 
-    balance = balance_cache
+    #balance = balance_cache
+    balance = 'balance_cache'
+    print(event.message)
 
-    if not await is_permited_user(current_user.id):
-        await event.answer(f'У вас нет доступа к этой информации', alert=True)
-        return
-
-    await event.answer(f'Ваш баланс: {balance}', alert=True)
+    #if not await is_permited_chat(current_chat.id):
+    #    await event.reply(f'У вас нет доступа к этой информации')
+    #    return
+    await event.reply(f'Ваш баланс: {balance}')
+    #await event.delete()
 
 
 @events.register(events.NewMessage(incoming=True, pattern='/balance'))
 async def start_handler(event):
-    await event.reply('Нажмите "проверить", чтобы узнать ваш баланс.', buttons=[
-        Button.inline('Проверить', b'check')
+    await event.reply('Нажмите "Проверить", чтобы узнать ваш баланс.', buttons=[
+        Button.text('Прoвeрить', resize=True, single_use=False)
     ])
 
 
 async def broadcast(bot, balance):
     print('Will send notification')
-    users_to_notify_ids = await get_users_to_notify_ids()
-    print(users_to_notify_ids)
+    chats_to_notify_ids = await get_chats_to_notify_ids()
+    print(chats_to_notify_ids)
 
-    if not users_to_notify_ids:
+    if not chats_to_notify_ids:
         return
 
-    for user_id in users_to_notify_ids:
+    for chat_id in chats_to_notify_ids:
         try:
-            await bot.send_message(user_id, f'Пополните баланс, осталось всего: {balance}')
+            await bot.send_message(chat_id, f'Пополните баланс, осталось всего: {balance}')
         except ValueError:
-            print('User ID not found.')
+            print('Chat ID not found.')
 
     # todo ToMany messages tg limit Exception
 
@@ -168,5 +170,6 @@ if __name__ == '__main__':
     with bot:
         bot.add_event_handler(start_handler)
         bot.add_event_handler(check_balance_handler)
+        print('started')
         bot.loop.create_task(frigate_connector(bot, delay, frigate_api_key, frigate_api_url))
         bot.run_until_disconnected()
