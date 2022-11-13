@@ -74,13 +74,12 @@ async def should_notify(balance):
 async def check_balance_handler(event):
     current_chat = await event.get_chat()
 
-    #balance = balance_cache
-    balance = 'balance_cache'
-    print(event.message)
+    balance = balance_cache
 
-    #if not await is_permited_chat(current_chat.id):
-    #    await event.reply(f'У вас нет доступа к этой информации')
-    #    return
+    if not await is_permited_chat(current_chat.id):
+        print(current_chat)
+        await event.reply(f'У вас нет доступа к этой информации')
+        return
     await event.reply(f'Ваш баланс: {balance}')
     #await event.delete()
 
@@ -170,6 +169,5 @@ if __name__ == '__main__':
     with bot:
         bot.add_event_handler(start_handler)
         bot.add_event_handler(check_balance_handler)
-        print('started')
         bot.loop.create_task(frigate_connector(bot, delay, frigate_api_key, frigate_api_url))
         bot.run_until_disconnected()
