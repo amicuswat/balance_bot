@@ -41,7 +41,8 @@ async def is_permited_chat(chat_id):
 
 async def get_chats_to_notify_ids():
     chats = await call_api('groups')
-    chats_to_notify_ids = [chat['telegram_id'] for chat in chats if chat['is_notification_list']]
+    chats_to_notify_ids = [chat['telegram_id']
+                           for chat in chats if chat['is_notification_list']]
 
     return chats_to_notify_ids
 
@@ -50,43 +51,33 @@ async def should_notify(balance):
     global last_notification_cache
     bot_settings = await call_api('bots/1')
     if balance > bot_settings['first_limit']:
-        print('balance is bigger do nothing')
         return
-    print('balance is less continue')
 
     if not last_notification_cache:
-        print('notify first time, save time')
         last_notification_cache = datetime.now()
         return True
-    print('Is it time to notify again?')
 
     if datetime.now() - last_notification_cache > timedelta(hours=bot_settings['first_limit_delay']):
-        print('time to notify again')
         last_notification_cache = datetime.now()
         return True
-    print('not notify is it critical')
 
     if (balance < bot_settings['critical_limit']
         and datetime.now() - last_notification_cache > timedelta(hours=bot_settings['critical_limit_delay'])):
-        print('critical balance notify')
         last_notification_cache = datetime.now()
         return True
 
 
 @events.register(events.NewMessage(incoming=True, pattern='Баланс Фригат Прокси'))
 async def check_balance_handler(event):
-    print('Preparing to answer balance')
     current_chat = await event.get_chat()
 
     balance = balance_cache
 
-    print('checking if chat is allowed')
-
     if not await is_permited_chat(current_chat.id):
         await event.reply(f'У вас нет доступа к этой информации')
         return
+
     await event.respond(f'Баланс ЛК Фригат составляет: {balance} руб.')
-    #await event.delete()
 
 
 @events.register(events.NewMessage(incoming=True, pattern='/start'))
@@ -115,7 +106,7 @@ async def broadcast(bot, balance):
     # todo Exception if chat is closed
 
 
-async def frigate_connector(bot, delay, frigate_api_key, frigate_api_url):
+async def frigate_connector(bot, frigate_api_key, frigate_api_url):
     global last_notification_cache, balance_cache
 
     print('Start looping')
@@ -125,6 +116,8 @@ async def frigate_connector(bot, delay, frigate_api_key, frigate_api_url):
     # bot_id = 1
     # last_notification = datetime.now()
     while True:
+        bot_settings = await call_api('bots/1')
+        delay = bot_settings['api_requests_interval']
         print(1)
         try:
             response = requests.get(frigate_api_url, params=params)
@@ -156,13 +149,14 @@ async def frigate_connector(bot, delay, frigate_api_key, frigate_api_url):
             await broadcast(bot, balance)
         print(3)
 
+
         await asyncio.sleep(delay)
         print(4)
 
 
 if __name__ == '__main__':
     load_dotenv()
-    delay = 60 # seconds
+
     frigate_api_key = os.environ['FRIGAT_API_KEY']
     frigate_api_url = 'https://frigate-proxy.ru/ru/api/balance'
 
@@ -172,5 +166,5 @@ if __name__ == '__main__':
     with bot:
         bot.add_event_handler(start_handler)
         bot.add_event_handler(check_balance_handler)
-        bot.loop.create_task(frigate_connector(bot, delay, frigate_api_key, frigate_api_url))
+        bot.loop.create_task(frigate_connector(bot, frigate_api_key, frigate_api_url))
         bot.run_until_disconnected()
