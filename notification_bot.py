@@ -31,7 +31,10 @@ async def call_api_post(endpoint, params):
 
 async def is_permited_chat(chat_id):
     chats = await call_api('groups')
+    print(chat_id)
+
     allowed_chat_ids = [chat['telegram_id'] for chat in chats]
+    print(allowed_chat_ids)
 
     return chat_id in allowed_chat_ids
 
@@ -70,24 +73,26 @@ async def should_notify(balance):
         return True
 
 
-@events.register(events.NewMessage(incoming=True, pattern='Прoвeрить'))
+@events.register(events.NewMessage(incoming=True, pattern='Баланс Фригат Прокси'))
 async def check_balance_handler(event):
+    print('Preparing to answer balance')
     current_chat = await event.get_chat()
 
     balance = balance_cache
 
+    print('checking if chat is allowed')
+
     if not await is_permited_chat(current_chat.id):
-        print(current_chat)
         await event.reply(f'У вас нет доступа к этой информации')
         return
-    await event.reply(f'Ваш баланс: {balance}')
+    await event.respond(f'Баланс ЛК Фригат составляет: {balance} руб.')
     #await event.delete()
 
 
-@events.register(events.NewMessage(incoming=True, pattern='/balance'))
+@events.register(events.NewMessage(incoming=True, pattern='/start'))
 async def start_handler(event):
-    await event.reply('Нажмите "Проверить", чтобы узнать ваш баланс.', buttons=[
-        Button.text('Прoвeрить', resize=True, single_use=False)
+    await event.respond('Меню:', buttons=[
+        Button.text('Баланс Фригат Прокси', resize=True, single_use=False)
     ])
 
 
@@ -101,7 +106,7 @@ async def broadcast(bot, balance):
 
     for chat_id in chats_to_notify_ids:
         try:
-            await bot.send_message(chat_id, f'Пополните баланс, осталось всего: {balance}')
+            await bot.send_message(chat_id, f'Необходимо срочно пополнить баланс! На текущий момент осталось: {balance} руб')
         except ValueError:
             print('Chat ID not found.')
 
@@ -137,15 +142,13 @@ async def frigate_connector(bot, delay, frigate_api_key, frigate_api_url):
         print(response.json())
 
 
-        balance = response.json()['balance']
+        balance = int(response.json()['balance'])
 
         balance_params = {
             "amount": f'{balance}'
         }
 
         await call_api_post('balancelist/', balance_params)
-        # todo Delete after test
-        balance = 1500
 
         balance_cache = balance
         print(2)
