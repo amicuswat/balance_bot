@@ -109,16 +109,16 @@ async def broadcast(bot, balance):
 async def frigate_connector(bot, frigate_api_key, frigate_api_url):
     global last_notification_cache, balance_cache
 
-    print('Start looping')
     params = {
         'api_key': frigate_api_key
     }
-    # bot_id = 1
-    # last_notification = datetime.now()
+
     while True:
         bot_settings = await call_api('bots/1')
+        print(bot_settings)
+
         delay = bot_settings['api_requests_interval']
-        print(1)
+
         try:
             response = requests.get(frigate_api_url, params=params)
         except ConnectionError as ex:
@@ -132,11 +132,8 @@ async def frigate_connector(bot, frigate_api_key, frigate_api_url):
             continue
 
         response.raise_for_status()
-        print(response.json())
-
 
         balance = int(response.json()['balance'])
-
         balance_params = {
             "amount": f'{balance}'
         }
@@ -144,14 +141,11 @@ async def frigate_connector(bot, frigate_api_key, frigate_api_url):
         await call_api_post('balancelist/', balance_params)
 
         balance_cache = balance
-        print(2)
+
         if await should_notify(balance):
             await broadcast(bot, balance)
-        print(3)
-
 
         await asyncio.sleep(delay)
-        print(4)
 
 
 if __name__ == '__main__':
