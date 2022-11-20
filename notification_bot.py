@@ -7,6 +7,7 @@ import requests
 from requests.exceptions import ConnectionError
 from telethon import TelegramClient, events, Button
 from dotenv import load_dotenv
+from telethon.errors import PeerIdInvalidError
 
 balance_cache = 0
 last_notification_cache = None
@@ -23,7 +24,6 @@ async def call_api(endpoint):
 
 async def call_api_post(endpoint, params):
     full_url = urljoin(API_URL, endpoint)
-    print(full_url)
     response = requests.post(full_url, data=params)
     response.raise_for_status()
     return response.json()
@@ -31,10 +31,8 @@ async def call_api_post(endpoint, params):
 
 async def is_permited_chat(chat_id):
     chats = await call_api('groups')
-    print(chat_id)
 
     allowed_chat_ids = [chat['telegram_id'] for chat in chats]
-    print(allowed_chat_ids)
 
     return chat_id in allowed_chat_ids
 
@@ -88,22 +86,21 @@ async def start_handler(event):
 
 
 async def broadcast(bot, balance):
-    print('Will send notification')
     chats_to_notify_ids = await get_chats_to_notify_ids()
-    print(chats_to_notify_ids)
 
     if not chats_to_notify_ids:
         return
 
     for chat_id in chats_to_notify_ids:
+        if int(chat_id) > 0:
+            chat_id = int(chat_id) * -1
+
         try:
             await bot.send_message(chat_id, f'Необходимо срочно пополнить баланс! На текущий момент осталось: {balance} руб')
         except ValueError:
             print('Chat ID not found.')
-
-    # todo ToMany messages tg limit Exception
-
-    # todo Exception if chat is closed
+        except PeerIdInvalidError as ex:
+            print(type(ex))
 
 
 async def frigate_connector(bot, frigate_api_key, frigate_api_url):
@@ -115,14 +112,13 @@ async def frigate_connector(bot, frigate_api_key, frigate_api_url):
 
     while True:
         bot_settings = await call_api('bots/1')
-        print(bot_settings)
 
         delay = bot_settings['api_requests_interval']
 
         try:
             response = requests.get(frigate_api_url, params=params)
         except ConnectionError as ex:
-            print(ex)
+            print(type(ex))
             await asyncio.sleep(delay)
             continue
 
