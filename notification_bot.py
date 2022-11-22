@@ -1,5 +1,6 @@
 import os
 import asyncio
+import time
 from datetime import datetime, timedelta
 from urllib.parse import urljoin
 
@@ -34,7 +35,7 @@ async def is_permited_chat(chat_id):
 
     allowed_chat_ids = [chat['telegram_id'] for chat in chats]
 
-    return chat_id in allowed_chat_ids
+    return any(str(chat_id) in str(chat) for chat in allowed_chat_ids)
 
 
 async def get_chats_to_notify_ids():
@@ -96,11 +97,18 @@ async def broadcast(bot, balance):
             chat_id = int(chat_id) * -1
 
         try:
-            await bot.send_message(chat_id, f'Необходимо срочно пополнить баланс! На текущий момент осталось: {balance} руб')
+            await bot.send_message(chat_id,
+                             f'СРОЧНО пополнить баланс, на фригате '
+                             f'shopfrigate@mail.ru! На текущий момент '
+                             f'осталось: {balance} руб')
         except ValueError:
             print('Chat ID not found.')
         except PeerIdInvalidError as ex:
             print(type(ex))
+            print('Бот удален из чата или остановлен')
+        except ConnectionError as ex:
+            print(type(ex))
+            print('Нет связи с телеграм')
 
 
 async def frigate_connector(bot, frigate_api_key, frigate_api_url):
@@ -150,11 +158,23 @@ if __name__ == '__main__':
     frigate_api_key = os.environ['FRIGAT_API_KEY']
     frigate_api_url = 'https://frigate-proxy.ru/ru/api/balance'
 
-    bot = TelegramClient('test_session', api_id=os.environ['TG_API_ID'], api_hash=os.environ['TG_API_HASH'])
-    bot.start(bot_token=os.environ['TG_BOT_TOKEN'])
+    while True:
+        bot = TelegramClient('test_session', api_id=os.environ['TG_API_ID'],
+                             api_hash=os.environ['TG_API_HASH'])
 
-    with bot:
+        try:
+            bot.start(bot_token=os.environ['TG_BOT_TOKEN'])
+        except Exception as ex:
+            print(ex)
+            time.sleep(30)
+            continue
+
         bot.add_event_handler(start_handler)
         bot.add_event_handler(check_balance_handler)
         bot.loop.create_task(frigate_connector(bot, frigate_api_key, frigate_api_url))
-        bot.run_until_disconnected()
+
+        try:
+            bot.run_until_disconnected()
+        except requests.exceptions.ConnectionError as ex:
+            print(ex)
+            time.sleep(30)
