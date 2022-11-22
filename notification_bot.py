@@ -175,6 +175,6 @@ if __name__ == '__main__':
 
         try:
             bot.run_until_disconnected()
-        except requests.exceptions.ConnectionError as ex:
+        except Exception as ex:
             print(ex)
             time.sleep(30)
