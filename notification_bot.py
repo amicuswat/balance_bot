@@ -46,9 +46,9 @@ async def get_chats_to_notify_ids():
     return chats_to_notify_ids
 
 
-async def should_notify(balance):
+async def should_notify(balance, bot_settings_id):
     global last_notification_cache
-    bot_settings = await call_api('bots/1')
+    bot_settings = await call_api(f'bots/{bot_settings_id}')
     if balance > bot_settings['first_limit']:
         return
 
@@ -111,7 +111,7 @@ async def broadcast(bot, balance):
             print('Нет связи с телеграм')
 
 
-async def frigate_connector(bot, frigate_api_key, frigate_api_url):
+async def frigate_connector(bot, frigate_api_key, frigate_api_url, bot_settings_id):
     global last_notification_cache, balance_cache
 
     params = {
@@ -119,7 +119,7 @@ async def frigate_connector(bot, frigate_api_key, frigate_api_url):
     }
 
     while True:
-        bot_settings = await call_api('bots/1')
+        bot_settings = await call_api(f'bots/{bot_settings_id}')
 
         delay = bot_settings['api_requests_interval']
 
@@ -146,7 +146,7 @@ async def frigate_connector(bot, frigate_api_key, frigate_api_url):
 
         balance_cache = balance
 
-        if await should_notify(balance):
+        if await should_notify(balance, bot_settings_id):
             await broadcast(bot, balance)
 
         await asyncio.sleep(delay)
@@ -157,6 +157,7 @@ if __name__ == '__main__':
 
     frigate_api_key = os.environ['FRIGAT_API_KEY']
     frigate_api_url = 'https://frigate-proxy.ru/ru/api/balance'
+    bot_settings_id = os.environ['BOT_SETTINGS_ID']
 
     while True:
         bot = TelegramClient('test_session', api_id=os.environ['TG_API_ID'],
@@ -171,7 +172,7 @@ if __name__ == '__main__':
 
         bot.add_event_handler(start_handler)
         bot.add_event_handler(check_balance_handler)
-        bot.loop.create_task(frigate_connector(bot, frigate_api_key, frigate_api_url))
+        bot.loop.create_task(frigate_connector(bot, frigate_api_key, frigate_api_url, bot_settings_id))
 
         try:
             bot.run_until_disconnected()
